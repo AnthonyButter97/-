@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Тригонометрическая рулетка — 24 сектора</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 90vh;
+        }
+        h1 {
+            margin-bottom: 5px;
+            font-size: 26px;
+            background: linear-gradient(45deg, #38bdf8, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .info-panel {
+            font-size: 18px;
+            margin: 15px 0;
+            height: 28px;
+            font-weight: 600;
+            color: #38bdf8;
+        }
+        .canvas-container {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid #334155;
+        }
+        canvas {
+            display: block;
+            background-color: #0b0f19;
+            border-radius: 12px;
+        }
+        button {
+            margin-top: 25px;
+            padding: 12px 35px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+            transition: all 0.2s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+        }
+        button:disabled {
+            background: #475569;
+            color: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Тригонометрическое колесо фортуны</h1>
+    <div class="info-panel" id="resultText">Нажмите кнопку, чтобы запустить вращение</div>
+
+    <div class="canvas-container">
+        <canvas id="circleCanvas" width="500" height="500"></canvas>
+    </div>
+
+    <button id="spinBtn">Испытать удачу</button>
+
+    <script>
+        const canvas = document.getElementById('circleCanvas');
+        const ctx = canvas.getContext('2d');
+        const resultText = document.getElementById('resultText');
+        const spinBtn = document.getElementById('spinBtn');
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = 180;
+        const totalSectors = 24;
+        const angleStep = (2 * Math.PI) / totalSectors; // 15 градусов в радианах
+
+        // Массив значений секторов (сверху 2.5 до 8.5, снизу -2.5 до -8.5 против часовой)
+        const sectorValues = [
+            "2.5", "3.0", "3.5", "4.0", "4.5", "5.0", "5.5", "6.0", "6.5", "7.0", "7.5", "8.0",
+            "-2.5", "-3.0", "-3.5", "-4.0", "-4.5", "-5.0", "-5.5", "-6.0", "-6.5", "-7.0", "-7.5", "-8.5"
+        ];
+
+        // Состояние анимации рулетки
+        let currentHighlightedIndex = null;
+        let isSpinning = false;
+
+        // Функция отрисовки всей сцены
+        function drawScene(highlightedIndex = null) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. ПОДСВЕТКА АКТИВНОГО СЕКТОРА (ЕСЛИ ВЫБРАН)
+            if (highlightedIndex !== null) {
+                ctx.fillStyle = isSpinning ? 'rgba(234, 179, 8, 0.4)' : 'rgba(234, 179, 8, 0.8)'; // Ярче при остановке
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                // В тригонометрии отсчет идет против часовой стрелки, поэтому углы берем со знаком минус для Canvas
+                let startAngle = -highlightedIndex * angleStep;
+                let endAngle = -(highlightedIndex + 1) * angleStep;
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle, true); 
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // 2. ОСИ КООРДИНАТ X и Y через центр
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX - radius - 30, centerY); ctx.lineTo(centerX + radius + 30, centerY); // Ось X
+            ctx.moveTo(centerX, centerY - radius - 30); ctx.lineTo(centerX, centerY + radius + 30); // Ось Y
+            ctx.stroke();
+
+            // Стрелочки осей
+            ctx.fillStyle = '#475569';
+            ctx.beginPath();
+            ctx.moveTo(centerX + radius + 30, centerY); ctx.lineTo(centerX + radius + 20, centerY - 5); ctx.lineTo(centerX + radius + 20, centerY + 5); ctx.fill();
+            ctx.moveTo(centerX, centerY - radius - 30); ctx.lineTo(centerX - 5, centerY - radius - 20); ctx.lineTo(centerX + 5, centerY - radius - 20); ctx.fill();
+
+            // 3. ОКРУЖНОСТЬ И СЕКТОРА
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            // Радиальные линии секторов
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < totalSectors; i++) {
+                let currentAngle = -i * angleStep;
+                let edgeX = centerX + radius * Math.cos(currentAngle);
+                let edgeY = centerY + radius * Math.sin(currentAngle);
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(edgeX, edgeY);
+                ctx.stroke();
+            }
+
+            // 4. ОТРИСОВКА ЦИФР РЯДОМ С СЕКТОРАМИ
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 13px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (let i = 0; i < totalSectors; i++) {
+                // Находим центральный угол внутри конкретного сектора для центрирования текста
+                let midAngle = -(i + 0.5) * angleStep;
+                
+                // Сдвигаем цифры чуть дальше радиуса окружности, чтобы они не наезжали на линии
+                let textDist = radius + 22;
+                let textX = centerX + textDist * Math.cos(midAngle);
+                let textY = centerY + textDist * Math.sin(midAngle);
+
+                ctx.fillText(sectorValues[i], textX, textY);
+            }
+        }
+
+        // Логика плавного замедления казино-рулетки
+        function startCasinoSpin() {
+            if (isSpinning) return;
+            
+            isSpinning = true;
+            spinBtn.disabled = true;
+            resultText.style.color = '#eab308';
+            resultText.innerText = 'Колесо вращается...';
+
+            const finalTarget = Math.floor(Math.random() * totalSectors); // Заранее определяем, где остановимся
+            let currentTick = 0;
+            
+            // Настройки таймингов
+            let currentDelay = 30;       // Начальная скорость переключения (мс)
+            const maxTicks = 65;         // Общее количество перескоков подсветки (~4.5–5 секунд)
+            let currentIndex = currentHighlightedIndex || 0;
+
+            function runTick() {
+                currentTick++;
+                currentIndex = (currentIndex + 1) % totalSectors; // Идем строго против часовой стрелки
+                
+                currentHighlightedIndex = currentIndex;
+                drawScene(currentHighlightedIndex);
+
+                // Замедление: чем ближе к концу, тем сильнее увеличиваем задержку между шагами
+                if (currentTick < maxTicks) {
+                    if (currentTick > maxTicks * 0.6) {
+                        currentDelay += 8;  // Начинаем плавно тормозить после 60% пути
+                    }
+                    if (currentTick > maxTicks * 0.85) {
+                        currentDelay += 35; // Финальное сильное торможение (интрига)
+                    }
+                    setTimeout(runTick, currentDelay);
+                } else {
+                    // Докручиваем ровно до нашей финальной случайной цели
+                    if (currentHighlightedIndex !== finalTarget) {
+                        setTimeout(runTick, currentDelay + 50);
+                    } else {
+                        // ПОЛНАЯ ОСТАНОВКА
+                        isSpinning = false;
+                        spinBtn.disabled = false;
+                        resultText.style.color = '#4ade80'; // Зеленый цвет выигрыша
+                        resultText.innerText = `Выпал сектор: Значение [ ${sectorValues[finalTarget]} ]`;
+                        drawScene(finalTarget); // Финальная яркая перерисовка
+                    }
+                }
+            }
+
+            runTick();
+        }
+
+        // Слушатель на кнопку запуска
+        spinBtn.addEventListener('click', startCasinoSpin);
+
+        // Первая инициализация при открытии страницы
+        drawScene();
+    </script>
+</body>
+</html>
+
+
